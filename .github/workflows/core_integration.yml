@@ -1,0 +1,53 @@
+---
+
+name: Integration-Core
+
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '**/*.rst'
+    branches:
+      - master
+      - '[0-9].*'
+  pull_request:
+    branches:
+      - master
+      - '[0-9].*'
+  schedule:
+    - cron: '0 1 * * *' # nightly build
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    name: Build and Test Core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./core
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up publishing to maven central
+        uses: actions/setup-java@v2
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.m2/repository
+            /var/cache/apt
+          key: entraid-${{hashFiles('**/pom.xml')}}
+      - name: Maven offline
+        run: |
+          mvn -q dependency:go-offline
+      - name: Build docs
+        run: |
+          mvn javadoc:jar
+      - name: Build with Maven
+        run: mvn compile
+      - name: Test with Maven
+        run: mvn test
