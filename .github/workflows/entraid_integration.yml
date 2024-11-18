@@ -1,6 +1,6 @@
 ---
 
-name: Integration-Core
+name: Integration-EntraID
 
 on:
   push:
@@ -22,13 +22,20 @@ on:
 jobs:
 
   build:
-    name: Build and Test Core
+    name: Build and Test EntraID
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./core
+        working-directory: ./entraid
     steps:
       - uses: actions/checkout@v2
+      - name: Checkout Jedis repository (tba_draft branch)
+        uses: actions/checkout@v2
+        with:
+          repository: atakavci/jedis  # Replace with the actual jedis repository URL
+          ref: ali/authx2
+          path: jedis  # Check out into a subdirectory named `jedis` so it's isolated
+          
       - name: Set up publishing to maven central
         uses: actions/setup-java@v2
         with:
@@ -40,10 +47,18 @@ jobs:
           path: |
             ~/.m2/repository
             /var/cache/apt
-          key: core-${{hashFiles('**/pom.xml')}}
+          key: entraid-${{hashFiles('**/pom.xml')}}
       - name: Maven offline
         run: |
           mvn -q dependency:go-offline
+      - name: Build and install Core into local repo
+        run: |
+          mvn clean install -DskipTests  # Skip tests for faster builds, but you can remove the flag if needed
+        working-directory: ./core
+      - name: Build and install Jedis supports TBA into local repo
+        run: |
+          cd jedis
+          mvn clean install -DskipTests  # Skip tests for faster builds, but you can remove the flag if needed
       - name: Build docs
         run: |
           mvn javadoc:jar
