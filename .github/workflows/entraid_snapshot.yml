@@ -1,0 +1,54 @@
+---
+
+  name: Publish Snapshot-EntraID
+  
+  on:
+    push:
+      branches:
+        - master
+        - '[0-9].x'
+    workflow_dispatch:
+  
+  jobs:
+  
+    snapshot:
+      name: Deploy Snapshot-EntraID
+      runs-on: ubuntu-latest
+      defaults:
+        run:
+          working-directory: ./entraid
+      steps:
+        - uses: actions/checkout@v2
+        - name: Checkout Jedis repository (tba_draft branch)
+          uses: actions/checkout@v2
+          with:
+            repository: atakavci/jedis  # Replace with the actual jedis repository URL
+            ref: ali/authx2
+            path: jedis  # Check out into a subdirectory named `jedis` so it's isolated
+        
+        - name: Set up publishing to maven central
+          uses: actions/setup-java@v2
+          with:
+            java-version: '8'
+            distribution: 'temurin'
+            server-id: ossrh
+            server-username: MAVEN_USERNAME
+            server-password: MAVEN_PASSWORD
+        - name: Cache dependencies
+          uses: actions/cache@v2
+          with:
+            path: |
+              ~/.m2/repository
+              /var/cache/apt
+            key: entraid-${{hashFiles('**/pom.xml')}}
+        - name: Maven offline
+          run: |
+            mvn -q dependency:go-offline
+        - name: deploy
+          run: |
+            mvn --no-transfer-progress \
+              -DskipTests deploy
+          env:
+            MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
+            MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
+  
