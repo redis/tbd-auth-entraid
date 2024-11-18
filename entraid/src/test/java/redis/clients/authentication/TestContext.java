@@ -24,6 +24,12 @@ import redis.clients.jedis.Protocol;
 
 public class TestContext {
 
+    private static final String AZURE_CLIENT_ID = "AZURE_CLIENT_ID";
+    private static final String AZURE_AUTHORITY = "AZURE_AUTHORITY";
+    private static final String AZURE_CLIENT_SECRET = "AZURE_CLIENT_SECRET";
+    private static final String AZURE_PRIVATE_KEY = "AZURE_PRIVATE_KEY";
+    private static final String AZURE_CERT = "AZURE_CERT";
+    private static final String AZURE_REDIS_SCOPES = "AZURE_REDIS_SCOPES";
     private static final String localContext = "./src/test/resources/local.context";
     private String clientId;
     private String authority;
@@ -39,12 +45,12 @@ public class TestContext {
             try {
                 Properties properties = new Properties();
                 properties.load(Files.newBufferedReader(Paths.get(localContext)));
-                this.clientId = properties.getProperty("CLIENT_ID");
-                this.authority = properties.getProperty("AUTHORITY");
-                this.clientSecret = properties.getProperty("CLIENT_SECRET");
-                this.privateKey = getPrivateKey(properties.getProperty("PRIVATE_KEY"));
-                this.cert = getCert(properties.getProperty("CERT"));
-                String redisScopesProp = properties.getProperty("REDIS_SCOPES");
+                this.clientId = properties.getProperty(AZURE_CLIENT_ID);
+                this.authority = properties.getProperty(AZURE_AUTHORITY);
+                this.clientSecret = properties.getProperty(AZURE_CLIENT_SECRET);
+                this.privateKey = getPrivateKey(properties.getProperty(AZURE_PRIVATE_KEY));
+                this.cert = getCert(properties.getProperty(AZURE_CERT));
+                String redisScopesProp = properties.getProperty(AZURE_REDIS_SCOPES);
                 if (redisScopesProp != null && !redisScopesProp.isEmpty()) {
                     this.redisScopes = new HashSet<>(Arrays.asList(redisScopesProp.split(";")));
                 }
@@ -52,10 +58,12 @@ public class TestContext {
                 throw new RuntimeException("Failed to load local.context", e);
             }
         } else {
-            this.clientId = System.getenv("CLIENT_ID");
-            this.authority = System.getenv("AUTHORITY");
-            this.clientSecret = System.getenv("CLIENT_SECRET");
-            String redisScopesEnv = System.getenv("REDIS_SCOPES");
+            this.clientId = System.getenv(AZURE_CLIENT_ID);
+            this.authority = System.getenv(AZURE_AUTHORITY);
+            this.clientSecret = System.getenv(AZURE_CLIENT_SECRET);
+            this.privateKey = getPrivateKey(System.getenv(AZURE_PRIVATE_KEY));
+            this.cert = getCert(System.getenv(AZURE_CERT));
+            String redisScopesEnv = System.getenv(AZURE_REDIS_SCOPES);
             if (redisScopesEnv != null && !redisScopesEnv.isEmpty()) {
                 this.redisScopes = new HashSet<>(Arrays.asList(redisScopesEnv.split(";")));
             }
