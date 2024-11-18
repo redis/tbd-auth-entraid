@@ -37,7 +37,7 @@ jobs:
       - name: deploy
         run: |
           mvn --no-transfer-progress \
-            -DskipTests deploy
+            -DskipTests deploy -N
         env:
           MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
           MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
