@@ -1,5 +1,3 @@
----
-
 name: Integration-EntraID
 
 on:
@@ -48,17 +46,25 @@ jobs:
             ~/.m2/repository
             /var/cache/apt
           key: entraid-${{hashFiles('**/pom.xml')}}
-      - name: Maven offline
+
+      - name: Maven offline-core
         run: |
           mvn -q dependency:go-offline
+        working-directory: ./core
       - name: Build and install Core into local repo
         run: |
           mvn clean install -DskipTests  # Skip tests for faster builds, but you can remove the flag if needed
         working-directory: ./core
+
+      - name: Maven offline-jedis
+        run: |
+          mvn -q dependency:go-offline
+        working-directory: ./jedis
       - name: Build and install Jedis supports TBA into local repo
         run: |
-          cd jedis
           mvn clean install -DskipTests  # Skip tests for faster builds, but you can remove the flag if needed
+        working-directory: ./jedis
+
       - name: Build docs
         run: |
           mvn javadoc:jar
