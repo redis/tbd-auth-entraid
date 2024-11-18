@@ -72,3 +72,10 @@ jobs:
         run: mvn compile
       - name: Test with Maven
         run: mvn test
+        env:
+          AZURE_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+          AZURE_AUTHORITY: ${{secrets.AZURE_AUTHORITY}}
+          AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+          AZURE_CERT: ${{secrets.AZURE_CERT}}
+          AZURE_PRIVATE_KEY: ${{secrets.AZURE_PRIVATE_KEY}}
+          AZURE_REDIS_SCOPES: ${{secrets.AZURE_REDIS_SCOPES}}

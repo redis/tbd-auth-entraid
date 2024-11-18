@@ -51,4 +51,3 @@
           env:
             MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
             MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
-  
