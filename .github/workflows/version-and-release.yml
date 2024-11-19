@@ -27,20 +27,40 @@ jobs:
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
 
-      - name: mvn versions
-        run: mvn versions:set -DnewVersion=${{ steps.get_version.outputs.VERSION }}
-
       - name: Install gpg key
         run: |
           cat <(echo -e "${{ secrets.OSSH_GPG_SECRET_KEY }}") | gpg --batch --import
           gpg --list-secret-keys --keyid-format LONG
 
-      - name: Publish
+      - name: mvn versions - Core
+        run: mvn versions:set -DnewVersion=${{ steps.get_version.outputs.VERSION }}
+        working-directory: ./core
+
+      - name: Publish - Core
         run: |
           mvn --no-transfer-progress \
-            --batch-mode \
-            -Dgpg.passphrase='${{ secrets.OSSH_GPG_SECRET_KEY_PASSWORD }}' \
-            -DskipTests deploy -P release
+              --batch-mode \
+              -Dgpg.passphrase='${{ secrets.OSSH_GPG_SECRET_KEY_PASSWORD }}' \
+              -DskipTests deploy -P release
         env:
-          MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
-          MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
+            MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
+            MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
+        working-directory: ./core
+
+      - name: mvn versions - EntraID
+        run: mvn versions:set -DnewVersion=${{ steps.get_version.outputs.VERSION }}
+        working-directory: ./entraid
+
+      - name: set release versions
+        run: mvn versions:use-releases -DallowSnapshots=false -DgenerateBackupPoms=false
+        working-directory: ./entraid
+
+      - name: Publish - EntraID
+        run: |
+            mvn --no-transfer-progress \
+              --batch-mode \
+              -Dgpg.passphrase='${{ secrets.OSSH_GPG_SECRET_KEY_PASSWORD }}' \
+              -DskipTests -Dmaven.test.skip=true deploy -P release
+        env:
+            MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
+            MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
