@@ -28,6 +28,8 @@ import redis.clients.authentication.core.Token;
 import redis.clients.authentication.core.TokenListener;
 import redis.clients.authentication.core.TokenManager;
 import redis.clients.authentication.core.TokenManagerConfig;
+import redis.clients.authentication.core.TokenRequestException;
+
 import static org.awaitility.Awaitility.await;
 import java.util.concurrent.TimeUnit;
 
@@ -157,10 +159,10 @@ public class CoreAuthenticationUnitTests {
     TokenManager tokenManager = new TokenManager(identityProvider,
         new TokenManagerConfig(0.7F, 200, 2000, new TokenManagerConfig.RetryPolicy(5, 100)));
 
-    ExecutionException e = assertThrows(ExecutionException.class,
+    TokenRequestException e = assertThrows(TokenRequestException.class,
       () -> tokenManager.start(mock(TokenListener.class), true));
 
-    assertEquals("java.lang.RuntimeException: Test exception from identity provider!",
+    assertEquals("Test exception from identity provider!",
       e.getCause().getCause().getMessage());
   }
 

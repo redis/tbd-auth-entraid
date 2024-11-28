@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,28 +18,38 @@ public class TokenManager {
     private TokenManagerConfig tokenManagerConfig;
     private IdentityProvider identityProvider;
     private TokenListener listener;
-    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private ExecutorService executor = Executors.newSingleThreadExecutor();
     private boolean stopped = false;
     private ScheduledFuture<?> scheduledTask;
     private int numberOfRetries = 0;
     private Exception lastException;
     private Logger logger = LoggerFactory.getLogger(getClass());
+    private Token currentToken = null;
+    private AtomicBoolean started = new AtomicBoolean(false);
 
     public TokenManager(IdentityProvider identityProvider, TokenManagerConfig tokenManagerConfig) {
         this.identityProvider = identityProvider;
         this.tokenManagerConfig = tokenManagerConfig;
     }
 
-    public void start(TokenListener listener, boolean blockForInitialToken)
-            throws InterruptedException, ExecutionException, TimeoutException {
+    public void start(TokenListener listener, boolean blockForInitialToken) {
 
+        if (!started.compareAndSet(false, true)) {
+            throw new AuthXException("Token manager already started!");
+        }
         this.listener = listener;
         ScheduledFuture<?> currentTask = scheduleNext(0);
         scheduledTask = currentTask;
         if (blockForInitialToken) {
-            while (currentTask.get() == null) {
-                currentTask = scheduledTask;
+            try {
+                while (currentTask.get() == null) {
+                    currentTask = scheduledTask;
+                }
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new TokenRequestException(unwrap(e), lastException);
             }
         }
     }
@@ -66,7 +77,8 @@ public class TokenManager {
         try {
             Future<Token> requestResult = executor.submit(() -> requestToken());
             newToken = requestResult.get(tokenManagerConfig.getTokenRequestExecTimeoutInMs(),
-                    TimeUnit.MILLISECONDS);
+                TimeUnit.MILLISECONDS);
+            currentToken = newToken;
             long delay = calculateRenewalDelay(newToken.getExpiresAt(), newToken.getReceivedAt());
             scheduledTask = scheduleNext(delay);
             listener.onTokenRenewed(newToken);
@@ -76,7 +88,7 @@ public class TokenManager {
                 numberOfRetries++;
                 scheduledTask = scheduleNext(tokenManagerConfig.getRetryPolicy().getdelayInMs());
             } else {
-                TokenRequestException tre = new TokenRequestException(e, lastException);
+                TokenRequestException tre = new TokenRequestException(unwrap(e), lastException);
                 listener.onError(tre);
                 throw tre;
             }
@@ -93,6 +105,14 @@ public class TokenManager {
             logger.error("Request to identity provider failed with message: " + e.getMessage(), e);
             throw e;
         }
+    }
+
+    private Throwable unwrap(Exception e) {
+        return (e instanceof ExecutionException) ? e.getCause() : e;
+    }
+
+    public Token getCurrentToken() {
+        return currentToken;
     }
 
     public long calculateRenewalDelay(long expireDate, long issueDate) {

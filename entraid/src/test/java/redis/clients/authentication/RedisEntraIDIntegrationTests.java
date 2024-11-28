@@ -7,26 +7,30 @@ import org.junit.Test;
 
 import redis.clients.authentication.core.Token;
 import redis.clients.authentication.entraid.EntraIDIdentityProvider;
+import redis.clients.authentication.entraid.ServicePrincipalInfo;
 
 public class RedisEntraIDIntegrationTests {
 
-    @Test
-    public void requestTokenWithSecret() throws MalformedURLException {
-        TestContext testCtx = TestContext.DEFAULT;
+        @Test
+        public void requestTokenWithSecret() throws MalformedURLException {
+                TestContext testCtx = TestContext.DEFAULT;
 
-        Token token = new EntraIDIdentityProvider(testCtx.getClientId(), testCtx.getAuthority(),
-                testCtx.getClientSecret(), testCtx.getRedisScopes()).requestToken();
+                Token token = new EntraIDIdentityProvider(
+                                new ServicePrincipalInfo(testCtx.getClientId(),
+                                                testCtx.getClientSecret(), testCtx.getAuthority()),
+                                testCtx.getRedisScopes()).requestToken();
 
-        assertNotNull(token.getValue());
-    }
+                assertNotNull(token.getValue());
+        }
 
-    @Test
-    public void requestTokenWithCert() throws MalformedURLException {
-        TestContext testCtx = TestContext.DEFAULT;
+        @Test
+        public void requestTokenWithCert() throws MalformedURLException {
+                TestContext testCtx = TestContext.DEFAULT;
 
-        Token token = new EntraIDIdentityProvider(testCtx.getClientId(), testCtx.getAuthority(),
-                testCtx.getPrivateKey(), testCtx.getCert(), testCtx.getRedisScopes()).requestToken();
+                Token token = new EntraIDIdentityProvider(new ServicePrincipalInfo(
+                                testCtx.getClientId(), testCtx.getPrivateKey(), testCtx.getCert(),
+                                testCtx.getAuthority()), testCtx.getRedisScopes()).requestToken();
 
-        assertNotNull(token.getValue());
-    }
+                assertNotNull(token.getValue());
+        }
 }

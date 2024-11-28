@@ -17,7 +17,8 @@ import redis.clients.authentication.core.IdentityProviderConfig;
 import redis.clients.authentication.core.SimpleToken;
 import redis.clients.authentication.core.TokenAuthConfig;
 import redis.clients.authentication.entraid.EntraIDIdentityProvider;
-import redis.clients.authentication.entraid.EntraIDTokenAuthConfig;
+import redis.clients.authentication.entraid.EntraIDTokenAuthConfigBuilder;
+import redis.clients.authentication.entraid.ServicePrincipalInfo;
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisPooled;
@@ -30,30 +31,29 @@ public class RedisEntraIDUnitTests {
         String clientId = "clientId1";
         String credential = "credential1";
         Set<String> scopes = Collections.singleton("scope1");
-        IdentityProviderConfig config = EntraIDTokenAuthConfig.builder().authority(authority).clientId(clientId)
-                .secret(credential).scopes(scopes).build().getIdentityProviderConfig();
+        IdentityProviderConfig config = EntraIDTokenAuthConfigBuilder.builder().authority(authority)
+                .clientId(clientId).secret(credential).scopes(scopes).build()
+                .getIdentityProviderConfig();
 
         assertNotNull(config);
 
         try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
-                EntraIDIdentityProvider.class, (mock, context) -> {
-                    assertEquals(clientId, context.arguments().get(0));
-                    assertEquals(authority, context.arguments().get(1));
-                    assertEquals(credential, context.arguments().get(2));
-                    assertEquals(scopes, context.arguments().get(3));
+            EntraIDIdentityProvider.class, (mock, context) -> {
+                ServicePrincipalInfo info = (ServicePrincipalInfo) context.arguments().get(0);
+                assertEquals(clientId, info.getClientId());
+                assertEquals(authority, info.getAuthority());
+                assertEquals(credential, info.getSecret());
+                assertEquals(scopes, context.arguments().get(1));
 
-                })) {
+            })) {
             config.getProvider();
         }
 
         try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
-                EntraIDIdentityProvider.class, (mock, context) -> {
-                    assertNull(context.arguments().get(0));
-                    assertNull(context.arguments().get(1));
-                    assertNull(context.arguments().get(2));
-                    assertNull(context.arguments().get(3));
-
-                })) {
+            EntraIDIdentityProvider.class, (mock, context) -> {
+                assertNull(context.arguments().get(0));
+                assertNull(context.arguments().get(1));
+            })) {
             config.getProvider();
         }
     }
@@ -64,28 +64,28 @@ public class RedisEntraIDUnitTests {
         EndpointConfig endpointConfig = TestContext.getRedisEndpoint("standalone0");
         HostAndPort hnp = endpointConfig.getHostAndPort();
 
-        TokenAuthConfig tokenAuthConfig = EntraIDTokenAuthConfig.builder()
+        TokenAuthConfig tokenAuthConfig = EntraIDTokenAuthConfigBuilder.builder()
                 .authority(testCtx.getAuthority()).clientId(testCtx.getClientId())
-                .secret(testCtx.getClientSecret()).scopes(testCtx.getRedisScopes())
-                .build();
+                .secret(testCtx.getClientSecret()).scopes(testCtx.getRedisScopes()).build();
 
         DefaultJedisClientConfig jedisConfig = DefaultJedisClientConfig.builder()
                 .tokenAuthConfig(tokenAuthConfig).build();
 
         AtomicInteger counter = new AtomicInteger(0);
         try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
-                EntraIDIdentityProvider.class, (mock, context) -> {
-                    assertEquals(testCtx.getClientId(), context.arguments().get(0));
-                    assertEquals(testCtx.getAuthority(), context.arguments().get(1));
-                    assertEquals(testCtx.getClientSecret(), context.arguments().get(2));
-                    assertEquals(testCtx.getRedisScopes(), context.arguments().get(3));
-                    assertNotNull(mock);
-                    doAnswer(invocation -> {
-                        counter.incrementAndGet();
-                        return new SimpleToken("token1", System.currentTimeMillis() + 5 * 60 * 1000,
-                                System.currentTimeMillis(), Collections.singletonMap("oid", "default"));
-                    }).when(mock).requestToken();
-                })) {
+            EntraIDIdentityProvider.class, (mock, context) -> {
+                ServicePrincipalInfo info = (ServicePrincipalInfo) context.arguments().get(0);
+                assertEquals(testCtx.getClientId(), info.getClientId());
+                assertEquals(testCtx.getAuthority(), info.getAuthority());
+                assertEquals(testCtx.getClientSecret(), info.getSecret());
+                assertEquals(testCtx.getRedisScopes(), context.arguments().get(1));
+                assertNotNull(mock);
+                doAnswer(invocation -> {
+                    counter.incrementAndGet();
+                    return new SimpleToken("token1", System.currentTimeMillis() + 5 * 60 * 1000,
+                            System.currentTimeMillis(), Collections.singletonMap("oid", "default"));
+                }).when(mock).requestToken();
+            })) {
             JedisPooled jedis = new JedisPooled(hnp, jedisConfig);
             assertNotNull(jedis);
             assertEquals(1, counter.get());
