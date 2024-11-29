@@ -7,7 +7,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -58,6 +57,7 @@ public class TokenManager {
         stopped = true;
         scheduledTask.cancel(true);
         scheduler.shutdown();
+        executor.shutdown();
     }
 
     public TokenManagerConfig getConfig() {

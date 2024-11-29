@@ -162,8 +162,7 @@ public class CoreAuthenticationUnitTests {
     TokenRequestException e = assertThrows(TokenRequestException.class,
       () -> tokenManager.start(mock(TokenListener.class), true));
 
-    assertEquals("Test exception from identity provider!",
-      e.getCause().getCause().getMessage());
+    assertEquals("Test exception from identity provider!", e.getCause().getCause().getMessage());
   }
 
   @Test
@@ -220,7 +219,7 @@ public class CoreAuthenticationUnitTests {
   @Test
   public void testTokenManagerWithHangingTokenRequest()
       throws InterruptedException, ExecutionException, TimeoutException {
-    int sleepDuration = 200;
+    int delayDuration = 200;
     int executionTimeout = 100;
     int tokenLifetime = 50 * 1000;
     int numberOfRetries = 5;
@@ -229,11 +228,7 @@ public class CoreAuthenticationUnitTests {
     IdentityProvider identityProvider = () -> {
       requesLatch.countDown();
       if (requesLatch.getCount() > 0) {
-        try {
-          Thread.sleep(sleepDuration);
-        } catch (InterruptedException e) {
-        }
-        return null;
+        delay(delayDuration);
       }
       return new SimpleToken("tokenValX", System.currentTimeMillis() + tokenLifetime,
           System.currentTimeMillis(), Collections.singletonMap("oid", "user1"));
@@ -249,5 +244,12 @@ public class CoreAuthenticationUnitTests {
     await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
       verify(listener, times(1)).onTokenRenewed(any());
     });
+  }
+
+  private void delay(long durationInMs) {
+    try {
+      Thread.sleep(durationInMs);
+    } catch (InterruptedException e) {
+    }
   }
 }
