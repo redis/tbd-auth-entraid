@@ -47,6 +47,7 @@ jobs:
             MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
             MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
         working-directory: ./core
+        continue-on-error: true  # This step will not stop the job even if it fails
 
       - name: mvn versions - EntraID
         run: mvn versions:set -DnewVersion=${{ steps.get_version.outputs.VERSION }}
@@ -65,3 +66,4 @@ jobs:
         env:
             MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
             MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
+        working-directory: ./entraid
