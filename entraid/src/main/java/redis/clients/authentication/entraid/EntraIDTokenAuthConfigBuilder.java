@@ -27,7 +27,7 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
     private Set<String> scopes;
     private ServicePrincipalAccess accessWith;
     private ManagedIdentityInfo mii;
-    Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier;
+    private Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier;
 
     public EntraIDTokenAuthConfigBuilder() {
         this.expirationRefreshRatio(DEFAULT_EXPIRATION_REFRESH_RATIO)
@@ -72,7 +72,7 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
 
     public EntraIDTokenAuthConfigBuilder customEntraIdAuthenticationSupplier(
             Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier) {
-
+        this.customEntraIdAuthenticationSupplier = customEntraIdAuthenticationSupplier;
         return this;
     }
 
