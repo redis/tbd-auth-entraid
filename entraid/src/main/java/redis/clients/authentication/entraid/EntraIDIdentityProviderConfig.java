@@ -1,31 +1,33 @@
 package redis.clients.authentication.entraid;
 
 import java.util.Set;
+import java.util.function.Supplier;
+
+import com.microsoft.aad.msal4j.IAuthenticationResult;
 
 import redis.clients.authentication.core.IdentityProvider;
 import redis.clients.authentication.core.IdentityProviderConfig;
 
 public final class EntraIDIdentityProviderConfig implements IdentityProviderConfig, AutoCloseable {
 
-    private ServicePrincipalInfo servicePrincipalInfo;
-    private Set<String> scopes;
-    private ManagedIdentityInfo managedIdentityInfo;
+    private Supplier<IdentityProvider> providerSupplier;
 
-    public EntraIDIdentityProviderConfig(ServicePrincipalInfo servicePrincipalInfo,
-            ManagedIdentityInfo info, Set<String> scopes) {
-        this.servicePrincipalInfo = servicePrincipalInfo;
-        this.scopes = scopes;
-        this.managedIdentityInfo = info;
+    public EntraIDIdentityProviderConfig(ServicePrincipalInfo info, Set<String> scopes) {
+        providerSupplier = () -> new EntraIDIdentityProvider(info, scopes);
+    }
+
+    public EntraIDIdentityProviderConfig(ManagedIdentityInfo info, Set<String> scopes) {
+        providerSupplier = () -> new EntraIDIdentityProvider(info, scopes);
+    }
+
+    public EntraIDIdentityProviderConfig(
+            Supplier<IAuthenticationResult> customEntraIdAppSupplier) {
+        providerSupplier = () -> new EntraIDIdentityProvider(customEntraIdAppSupplier);
     }
 
     @Override
     public IdentityProvider getProvider() {
-        IdentityProvider identityProvider = null;
-        if (managedIdentityInfo != null) {
-            identityProvider = new EntraIDIdentityProvider(managedIdentityInfo, scopes);
-        } else {
-            identityProvider = new EntraIDIdentityProvider(servicePrincipalInfo, scopes);
-        }
+        IdentityProvider identityProvider = providerSupplier.get();
         clear();
         return identityProvider;
     }
@@ -36,8 +38,6 @@ public final class EntraIDIdentityProviderConfig implements IdentityProviderConf
     }
 
     private void clear() {
-        servicePrincipalInfo = null;
-        managedIdentityInfo = null;
-        scopes = null;
+        providerSupplier = null;
     }
 }

@@ -48,6 +48,10 @@ public final class EntraIDIdentityProvider implements IdentityProvider {
         resultSupplier = () -> supplierForManagedIdentityApp(app, params);
     }
 
+    public EntraIDIdentityProvider(Supplier<IAuthenticationResult> customEntraIdAppSupplier) {
+        this.resultSupplier = customEntraIdAppSupplier;
+    }
+
     private IClientCredential getClientCredential(ServicePrincipalInfo servicePrincipalInfo) {
         switch (servicePrincipalInfo.getAccessWith()) {
         case WithSecret:

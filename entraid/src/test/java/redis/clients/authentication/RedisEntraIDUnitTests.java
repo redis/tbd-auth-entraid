@@ -16,8 +16,11 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
@@ -31,6 +34,7 @@ import org.mockito.MockedConstruction;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+
 import redis.clients.authentication.core.IdentityProvider;
 import redis.clients.authentication.core.IdentityProviderConfig;
 import redis.clients.authentication.core.SimpleToken;
@@ -281,6 +285,16 @@ public class RedisEntraIDUnitTests {
     }
 
     // T.2.2
+
+    // Test that the Redis client is not blocked/interrupted during token renewal.
+    @Test
+    public void renewalDuringOperationsTest() {
+        // set the stage with consecutive get/set operations with unique keys which takes at least for 2000 ms with a jedispooled instace, 
+        // configure token manager to renew token every 500ms
+        // wait till all operations are completed and verify that token was renewed at least 3 times after initial token acquisition 
+    }
+
+    // T.2.2
     // Ensure the system propagates error during renewal back to the user
     @Test
     public void failedRenewalTest() {
@@ -306,6 +320,7 @@ public class RedisEntraIDUnitTests {
 
         Awaitility.await().pollInterval(ONE_HUNDRED_MILLISECONDS).atMost(TWO_SECONDS)
                 .until(() -> numberOfErrors.get(), is(1));
+
     }
 
     // T.2.3
@@ -330,6 +345,7 @@ public class RedisEntraIDUnitTests {
                     timeDiff.set((int) (token.getExpiresAt() - lastToken.getExpiresAt()));
                 }
                 lastToken = token;
+
             }
 
             @Override
@@ -350,7 +366,89 @@ public class RedisEntraIDUnitTests {
     // T.2.3
     // Verify behavior with edge case renewal timing configurations (e.g., very low or high percentages).
     @Test
-    public void edgeCaseRenewalTimingTest() {
+    public void highPercentage_edgeCaseRenewalTimingTest() {
+        List<Token> tokens = new ArrayList<Token>();
+        int validDurationInMs = 1000;
+
+        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_VALUE,
+                System.currentTimeMillis() + validDurationInMs, System.currentTimeMillis(),
+                Collections.singletonMap("oid", TOKEN_OID));
+
+        TokenManagerConfig tokenManagerConfig = new TokenManagerConfig(0.99F, 0,
+                TOKEN_REQUEST_EXEC_TIMEOUT,
+                new TokenManagerConfig.RetryPolicy(RETRY_POLICY_MAX_ATTEMPTS, RETRY_POLICY_DELAY));
+
+        TokenManager tokenManager = new TokenManager(identityProvider, tokenManagerConfig);
+        TokenListener listener = new TokenListener() {
+
+            @Override
+            public void onTokenRenewed(Token token) {
+                tokens.add(token);
+            }
+
+            @Override
+            public void onError(Exception e) {
+            }
+        };
+
+        tokenManager.start(listener, false);
+
+        Awaitility.await().pollInterval(Duration.ofMillis(10)).atMost(Durations.TWO_SECONDS)
+                .until(() -> tokens.size(), is(2));
+
+        Token initialToken = tokens.get(0);
+        Token secondToken = tokens.get(1);
+        Long renewalWindowStart = initialToken.getReceivedAt()
+                + (long) (validDurationInMs * tokenManagerConfig.getExpirationRefreshRatio());
+        Long renewalWindowEnd = initialToken.getExpiresAt();
+        assertThat((Long) secondToken.getReceivedAt(),
+            both(greaterThanOrEqualTo(renewalWindowStart))
+                    .and(lessThanOrEqualTo(renewalWindowEnd)));
+
+    }
+
+        // T.2.3
+    // Verify behavior with edge case renewal timing configurations (e.g., very low or high percentages).
+    @Test
+    public void lowPercentage_edgeCaseRenewalTimingTest() {
+        List<Token> tokens = new ArrayList<Token>();
+        int validDurationInMs = 1000;
+
+        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_VALUE,
+                System.currentTimeMillis() + validDurationInMs, System.currentTimeMillis(),
+                Collections.singletonMap("oid", TOKEN_OID));
+
+        TokenManagerConfig tokenManagerConfig = new TokenManagerConfig(0.01F, 0,
+                TOKEN_REQUEST_EXEC_TIMEOUT,
+                new TokenManagerConfig.RetryPolicy(RETRY_POLICY_MAX_ATTEMPTS, RETRY_POLICY_DELAY));
+
+        TokenManager tokenManager = new TokenManager(identityProvider, tokenManagerConfig);
+        TokenListener listener = new TokenListener() {
+
+            @Override
+            public void onTokenRenewed(Token token) {
+                tokens.add(token);
+            }
+
+            @Override
+            public void onError(Exception e) {
+            }
+        };
+
+        tokenManager.start(listener, false);
+
+        Awaitility.await().pollInterval(ONE_MILLISECOND).atMost(Durations.TWO_SECONDS)
+                .until(() -> tokens.size(), is(2));
+
+        Token initialToken = tokens.get(0);
+        Token secondToken = tokens.get(1);
+        Long renewalWindowStart = initialToken.getReceivedAt()
+                + (long) (validDurationInMs * tokenManagerConfig.getExpirationRefreshRatio());
+        Long renewalWindowEnd = initialToken.getExpiresAt();
+        assertThat((Long) secondToken.getReceivedAt(),
+            both(greaterThanOrEqualTo(renewalWindowStart))
+                    .and(lessThanOrEqualTo(renewalWindowEnd)));
+
     }
 
     // T.2.4
@@ -363,6 +461,7 @@ public class RedisEntraIDUnitTests {
 
         token = JWT.create().withExpiresAt(new Date(System.currentTimeMillis() + 1000))
                 .withClaim("oid", "user1").sign(Algorithm.none());
+
         assertFalse(new JWToken(token).isExpired());
     }
 
@@ -382,6 +481,13 @@ public class RedisEntraIDUnitTests {
             lessThanOrEqualTo((Long) 10L));
     }
 
+    // T.2.5
+    // Ensure that token objects are immutable and cannot be modified after creation.
+    @Test
+    public void tokenImmutabilityTest() {
+        // ???
+    }
+
     // T.3.1
     // Verify that the most recent valid token is correctly cached and that the cache is initially empty
     @Test
@@ -397,6 +503,82 @@ public class RedisEntraIDUnitTests {
         assertNull(tokenManager.getCurrentToken());
         tokenManager.start(mock(TokenListener.class), true);
         assertNotNull(tokenManager.getCurrentToken());
+    }
+
+    // T.3.1
+    // Ensure the token cache is updated when a new token is acquired or renewed.
+    @Test
+    public void cacheUpdateOnRenewalTest() {
+
+        AtomicInteger numberOfTokens = new AtomicInteger(0);
+        IdentityProvider identityProvider = () -> {
+            return new SimpleToken("" + numberOfTokens.incrementAndGet(),
+                    System.currentTimeMillis() + 500, System.currentTimeMillis(),
+                    Collections.singletonMap("oid", "user1"));
+        };
+        TokenManager tokenManager = new TokenManager(identityProvider, tokenManagerConfig);
+        assertNull(tokenManager.getCurrentToken());
+        tokenManager.start(mock(TokenListener.class), true);
+        assertNotNull(tokenManager.getCurrentToken());
+        assertEquals("1", tokenManager.getCurrentToken().getValue());
+        Awaitility.await().pollInterval(ONE_HUNDRED_MILLISECONDS).atMost(TWO_SECONDS)
+                .until(() -> tokenManager.getCurrentToken().getValue(), is("2"));
+
+    }
+
+    // T.3.2
+    // Verify that all existing connections can be re-authenticated when a new token is received.
+    @Test
+    public void allConnectionsReauthTest() {
+
+    }
+
+    // T.3.2
+    // Test system behavior when some connections fail to re-authenticate during bulk authentication. e.g when a network partition occurs for 1 or more of them
+    @Test
+    public void partialReauthFailureTest() {
+
+    }
+
+    // T.3.3
+    // Test authentication of a single connection using the current valid token.
+    @Test
+    public void singleConnectionAuthTest() {
+
+    }
+
+    // T.3.3
+    // Verify behavior when attempting to authenticate a single connection with an expired token.
+    @Test
+    public void connectionAuthWithExpiredTokenTest() {
+
+    }
+
+    // T.3.4
+    // Verify handling of reconnection and re-authentication after a network partition. (use cached token)
+    @Test
+    public void networkPartitionEvictionTest() {
+
+    }
+
+    // T.4.1
+    // Verify that token renewal timing can be configured correctly.
+    @Test
+    public void renewalTimingConfigTest() {
+
+    }
+
+    // T.4.2
+    // Verify that Azure AD-specific parameters can be configured correctly.
+    @Test
+    public void azureADConfigTest() {
+
+    }
+
+    // T.4.2
+    // Test configuration of custom identity provider parameters.
+    @Test
+    public void customProviderConfigTest() {
     }
 
     private void delay(long durationInMs) {

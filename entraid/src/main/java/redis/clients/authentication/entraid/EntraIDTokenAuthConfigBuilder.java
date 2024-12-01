@@ -3,6 +3,9 @@ package redis.clients.authentication.entraid;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import com.microsoft.aad.msal4j.IAuthenticationResult;
 
 import redis.clients.authentication.core.TokenAuthConfig;
 import redis.clients.authentication.entraid.ManagedIdentityInfo.UserManagedIdentityType;
@@ -24,6 +27,7 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
     private Set<String> scopes;
     private ServicePrincipalAccess accessWith;
     private ManagedIdentityInfo mii;
+    Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier;
 
     public EntraIDTokenAuthConfigBuilder() {
         this.expirationRefreshRatio(DEFAULT_EXPIRATION_REFRESH_RATIO)
@@ -66,6 +70,12 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
         return this;
     }
 
+    public EntraIDTokenAuthConfigBuilder customEntraIdAuthenticationSupplier(
+            Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier) {
+
+        return this;
+    }
+
     public EntraIDTokenAuthConfigBuilder scopes(Set<String> scopes) {
         this.scopes = scopes;
         return this;
@@ -85,11 +95,22 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
         }
         if (spi != null && mii != null) {
             throw new RedisEntraIDException(
-                    "Cannot have both ServicePrincipal and ManagedIdentity");
+                    "Cannot have both ServicePrincipal and ManagedIdentity!");
         }
-        EntraIDIdentityProviderConfig idProviderConfig = new EntraIDIdentityProviderConfig(spi, mii,
-                scopes);
-        super.identityProviderConfig(idProviderConfig);
+        if (this.customEntraIdAuthenticationSupplier != null && (spi != null || mii != null)) {
+            throw new RedisEntraIDException(
+                    "Cannot have both customEntraIdAuthenticationSupplier and ServicePrincipal/ManagedIdentity!");
+        }
+        if (spi != null) {
+            super.identityProviderConfig(new EntraIDIdentityProviderConfig(spi, scopes));
+        }
+        if (mii != null) {
+            super.identityProviderConfig(new EntraIDIdentityProviderConfig(mii, scopes));
+        }
+        if (customEntraIdAuthenticationSupplier != null) {
+            super.identityProviderConfig(
+                new EntraIDIdentityProviderConfig(customEntraIdAuthenticationSupplier));
+        }
         return super.build();
     }
 
@@ -101,6 +122,7 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
         cert = null;
         authority = null;
         scopes = null;
+        customEntraIdAuthenticationSupplier = null;
     }
 
     public static EntraIDTokenAuthConfigBuilder builder() {
