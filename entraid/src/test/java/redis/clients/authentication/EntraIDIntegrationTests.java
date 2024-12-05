@@ -10,7 +10,6 @@ import redis.clients.authentication.entraid.ServicePrincipalInfo;
 
 public class EntraIDIntegrationTests {
 
-
         @Test
         public void requestTokenWithSecret() throws MalformedURLException {
                 TestContext testCtx = TestContext.DEFAULT;

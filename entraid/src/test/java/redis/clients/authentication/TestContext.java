@@ -10,7 +10,6 @@ import java.security.PrivateKey;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.HashMap;
 
 public class TestContext {
 
@@ -20,8 +19,6 @@ public class TestContext {
     private static final String AZURE_PRIVATE_KEY = "AZURE_PRIVATE_KEY";
     private static final String AZURE_CERT = "AZURE_CERT";
     private static final String AZURE_REDIS_SCOPES = "AZURE_REDIS_SCOPES";
-
-    private static HashMap<String, EndpointConfig> endpointConfigs;
 
     private String clientId;
     private String authority;
@@ -37,20 +34,6 @@ public class TestContext {
         this.clientId = System.getenv(AZURE_CLIENT_ID);
         this.authority = System.getenv(AZURE_AUTHORITY);
         this.clientSecret = System.getenv(AZURE_CLIENT_SECRET);
-        this.privateKey = getPrivateKey(System.getenv(AZURE_PRIVATE_KEY));
-        this.cert = getCert(System.getenv(AZURE_CERT));
-        String redisScopesEnv = System.getenv(AZURE_REDIS_SCOPES);
-        if (redisScopesEnv != null && !redisScopesEnv.isEmpty()) {
-            this.redisScopes = new HashSet<>(Arrays.asList(redisScopesEnv.split(";")));
-        }
-
-        String endpointsPath = System.getenv().getOrDefault("REDIS_ENDPOINTS_CONFIG_PATH",
-            "src/test/resources/endpoints.json");
-        try {
-            endpointConfigs = EndpointConfig.loadFromJSON(endpointsPath);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public TestContext(String clientId, String authority, String clientSecret,
@@ -74,23 +57,25 @@ public class TestContext {
     }
 
     public PrivateKey getPrivateKey() {
+        if (privateKey == null) {
+            this.privateKey = getPrivateKey(System.getenv(AZURE_PRIVATE_KEY));
+        }
         return privateKey;
     }
 
     public X509Certificate getCert() {
+        if (cert == null) {
+            this.cert = getCert(System.getenv(AZURE_CERT));
+        }
         return cert;
     }
 
     public Set<String> getRedisScopes() {
-        return redisScopes;
-    }
-
-    public EndpointConfig getRedisEndpoint(String endpointName) {
-        if (!endpointConfigs.containsKey(endpointName)) {
-            throw new IllegalArgumentException("Unknown Redis endpoint: " + endpointName);
+        if (redisScopes == null) {
+            String redisScopesEnv = System.getenv(AZURE_REDIS_SCOPES);
+            this.redisScopes = new HashSet<>(Arrays.asList(redisScopesEnv.split(";")));
         }
-
-        return endpointConfigs.get(endpointName);
+        return redisScopes;
     }
 
     private PrivateKey getPrivateKey(String privateKey) {

@@ -50,6 +50,7 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
 
     public EntraIDTokenAuthConfigBuilder key(PrivateKey key, X509Certificate cert) {
         this.key = key;
+        this.cert = cert;
         this.accessWith = ServicePrincipalAccess.WithCert;
         return this;
     }

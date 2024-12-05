@@ -13,7 +13,6 @@ import com.microsoft.aad.msal4j.IAuthenticationResult;
 import com.microsoft.aad.msal4j.IClientCredential;
 import com.microsoft.aad.msal4j.ManagedIdentityApplication;
 import com.microsoft.aad.msal4j.ManagedIdentityParameters;
-
 import redis.clients.authentication.core.IdentityProvider;
 import redis.clients.authentication.core.Token;
 
@@ -48,8 +47,9 @@ public final class EntraIDIdentityProvider implements IdentityProvider {
         resultSupplier = () -> supplierForManagedIdentityApp(app, params);
     }
 
-    public EntraIDIdentityProvider(Supplier<IAuthenticationResult> customEntraIdAppSupplier) {
-        this.resultSupplier = customEntraIdAppSupplier;
+    public EntraIDIdentityProvider(
+            Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier) {
+        this.resultSupplier = customEntraIdAuthenticationSupplier;
     }
 
     private IClientCredential getClientCredential(ServicePrincipalInfo servicePrincipalInfo) {

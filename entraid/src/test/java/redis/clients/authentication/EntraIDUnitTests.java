@@ -6,16 +6,18 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.awaitility.Durations.*;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,9 +25,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import org.awaitility.Awaitility;
 import org.awaitility.Durations;
@@ -34,6 +38,12 @@ import org.mockito.MockedConstruction;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.microsoft.aad.msal4j.ClientCredentialFactory;
+import com.microsoft.aad.msal4j.ClientCredentialParameters;
+import com.microsoft.aad.msal4j.ConfidentialClientApplication;
+import com.microsoft.aad.msal4j.IAuthenticationResult;
+import com.microsoft.aad.msal4j.IClientSecret;
+import com.microsoft.aad.msal4j.ManagedIdentityId;
 
 import redis.clients.authentication.core.IdentityProvider;
 import redis.clients.authentication.core.IdentityProviderConfig;
@@ -47,12 +57,15 @@ import redis.clients.authentication.core.TokenRequestException;
 import redis.clients.authentication.entraid.EntraIDIdentityProvider;
 import redis.clients.authentication.entraid.EntraIDTokenAuthConfigBuilder;
 import redis.clients.authentication.entraid.JWToken;
+import redis.clients.authentication.entraid.ManagedIdentityInfo;
 import redis.clients.authentication.entraid.ServicePrincipalInfo;
-import redis.clients.jedis.DefaultJedisClientConfig;
-import redis.clients.jedis.HostAndPort;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.authentication.entraid.ManagedIdentityInfo.UserManagedIdentityType;
 
-public class RedisEntraIDUnitTests {
+// import redis.clients.jedis.DefaultJedisClientConfig;
+// import redis.clients.jedis.HostAndPort;
+// import redis.clients.jedis.JedisPooled;
+
+public class EntraIDUnitTests {
 
     private static final float EXPIRATION_REFRESH_RATIO = 0.7F;
     private static final int LOWER_REFRESH_BOUND_MILLIS = 200;
@@ -80,12 +93,10 @@ public class RedisEntraIDUnitTests {
         String clientId = "clientId1";
         String credential = "credential1";
         Set<String> scopes = Collections.singleton("scope1");
-        IdentityProviderConfig config = EntraIDTokenAuthConfigBuilder.builder().authority(authority)
-                .clientId(clientId).secret(credential).scopes(scopes).build()
+        IdentityProviderConfig configWithSecret = EntraIDTokenAuthConfigBuilder.builder()
+                .authority(authority).clientId(clientId).secret(credential).scopes(scopes).build()
                 .getIdentityProviderConfig();
-
-        assertNotNull(config);
-
+        assertNotNull(configWithSecret);
         try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
             EntraIDIdentityProvider.class, (mock, context) -> {
                 ServicePrincipalInfo info = (ServicePrincipalInfo) context.arguments().get(0);
@@ -95,47 +106,38 @@ public class RedisEntraIDUnitTests {
                 assertEquals(scopes, context.arguments().get(1));
 
             })) {
-            config.getProvider();
+            configWithSecret.getProvider();
         }
 
-        try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
-            EntraIDIdentityProvider.class, (mock, context) -> {
-                assertNull(context.arguments().get(0));
-                assertNull(context.arguments().get(1));
-            })) {
-            config.getProvider();
-        }
-    }
-
-    @Test
-    public void testJedisConfig() {
-
-        TokenAuthConfig tokenAuthConfig = EntraIDTokenAuthConfigBuilder.builder()
-                .authority(testCtx.getAuthority()).clientId(testCtx.getClientId())
-                .secret(testCtx.getClientSecret()).scopes(testCtx.getRedisScopes()).build();
-
-        DefaultJedisClientConfig jedisConfig = DefaultJedisClientConfig.builder()
-                .tokenAuthConfig(tokenAuthConfig).build();
-
-        AtomicInteger counter = new AtomicInteger(0);
+        IdentityProviderConfig configWithCert = EntraIDTokenAuthConfigBuilder.builder()
+                .authority(authority).clientId(clientId)
+                .key(testCtx.getPrivateKey(), testCtx.getCert()).scopes(scopes).build()
+                .getIdentityProviderConfig();
+        assertNotNull(configWithCert);
         try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
             EntraIDIdentityProvider.class, (mock, context) -> {
                 ServicePrincipalInfo info = (ServicePrincipalInfo) context.arguments().get(0);
+                assertEquals(clientId, info.getClientId());
+                assertEquals(authority, info.getAuthority());
+                assertEquals(testCtx.getPrivateKey(), info.getKey());
+                assertEquals(testCtx.getCert(), info.getCert());
+                assertEquals(scopes, context.arguments().get(1));
 
-                assertEquals(testCtx.getClientId(), info.getClientId());
-                assertEquals(testCtx.getAuthority(), info.getAuthority());
-                assertEquals(testCtx.getClientSecret(), info.getSecret());
-                assertEquals(testCtx.getRedisScopes(), context.arguments().get(1));
-                assertNotNull(mock);
-                doAnswer(invocation -> {
-                    counter.incrementAndGet();
-                    return new SimpleToken("token1", System.currentTimeMillis() + 5 * 60 * 1000,
-                            System.currentTimeMillis(), Collections.singletonMap("oid", "default"));
-                }).when(mock).requestToken();
             })) {
-            JedisPooled jedis = new JedisPooled(new HostAndPort("localhost", 6379), jedisConfig);
-            assertNotNull(jedis);
-            assertEquals(1, counter.get());
+            configWithCert.getProvider();
+        }
+
+        IdentityProviderConfig configWithManagedId = EntraIDTokenAuthConfigBuilder.builder()
+                .systemAssignedManagedIdentity().scopes(scopes).build().getIdentityProviderConfig();
+        assertNotNull(configWithManagedId);
+        try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
+            EntraIDIdentityProvider.class, (mock, context) -> {
+                ManagedIdentityInfo info = (ManagedIdentityInfo) context.arguments().get(0);
+                assertEquals(ManagedIdentityId.systemAssigned().getIdType(),
+                    info.getId().getIdType());
+                assertEquals(scopes, context.arguments().get(1));
+            })) {
+            configWithManagedId.getProvider();
         }
     }
 
@@ -242,18 +244,21 @@ public class RedisEntraIDUnitTests {
 
         IdentityProvider identityProvider = () -> {
             if (numberOfRetries.getAndIncrement() < 1) {
-                delay(TOKEN_REQUEST_EXEC_TIMEOUT);
+                delay(TOKEN_REQUEST_EXEC_TIMEOUT * 2);
             }
             return simpleToken;
         };
 
         TokenManager tokenManager = new TokenManager(identityProvider, tokenManagerConfig);
 
+        long startTime = System.currentTimeMillis();
         tokenManager.start(mock(TokenListener.class), false);
 
         Awaitility.await().pollInterval(ONE_HUNDRED_MILLISECONDS).atMost(Durations.FIVE_SECONDS)
                 .until(() -> tokenManager.getCurrentToken() != null);
         assertEquals(2, numberOfRetries.get());
+        long totalTime = System.currentTimeMillis() - startTime;
+        assertThat(totalTime, lessThan(TOKEN_REQUEST_EXEC_TIMEOUT * 2L));
     }
 
     // T.2.2
@@ -285,16 +290,6 @@ public class RedisEntraIDUnitTests {
     }
 
     // T.2.2
-
-    // Test that the Redis client is not blocked/interrupted during token renewal.
-    @Test
-    public void renewalDuringOperationsTest() {
-        // set the stage with consecutive get/set operations with unique keys which takes at least for 2000 ms with a jedispooled instace, 
-        // configure token manager to renew token every 500ms
-        // wait till all operations are completed and verify that token was renewed at least 3 times after initial token acquisition 
-    }
-
-    // T.2.2
     // Ensure the system propagates error during renewal back to the user
     @Test
     public void failedRenewalTest() {
@@ -320,11 +315,12 @@ public class RedisEntraIDUnitTests {
 
         Awaitility.await().pollInterval(ONE_HUNDRED_MILLISECONDS).atMost(TWO_SECONDS)
                 .until(() -> numberOfErrors.get(), is(1));
-
     }
 
     // T.2.3
     // Test that token renewal can be triggered at a specified percentage of the token's lifetime.
+    // T.4.1
+    // Verify that token renewal timing can be configured correctly.
     @Test
     public void customRenewalTimingTest() {
         AtomicInteger numberOfTokens = new AtomicInteger(0);
@@ -365,6 +361,8 @@ public class RedisEntraIDUnitTests {
 
     // T.2.3
     // Verify behavior with edge case renewal timing configurations (e.g., very low or high percentages).
+    // T.4.1
+    // Verify that token renewal timing can be configured correctly.
     @Test
     public void highPercentage_edgeCaseRenewalTimingTest() {
         List<Token> tokens = new ArrayList<Token>();
@@ -404,11 +402,12 @@ public class RedisEntraIDUnitTests {
         assertThat((Long) secondToken.getReceivedAt(),
             both(greaterThanOrEqualTo(renewalWindowStart))
                     .and(lessThanOrEqualTo(renewalWindowEnd)));
-
     }
 
-        // T.2.3
+    // T.2.3
     // Verify behavior with edge case renewal timing configurations (e.g., very low or high percentages).
+    // T.4.1
+    // Verify that token renewal timing can be configured correctly.
     @Test
     public void lowPercentage_edgeCaseRenewalTimingTest() {
         List<Token> tokens = new ArrayList<Token>();
@@ -448,7 +447,6 @@ public class RedisEntraIDUnitTests {
         assertThat((Long) secondToken.getReceivedAt(),
             both(greaterThanOrEqualTo(renewalWindowStart))
                     .and(lessThanOrEqualTo(renewalWindowEnd)));
-
     }
 
     // T.2.4
@@ -485,7 +483,7 @@ public class RedisEntraIDUnitTests {
     // Ensure that token objects are immutable and cannot be modified after creation.
     @Test
     public void tokenImmutabilityTest() {
-        // ???
+        // TODO :  what is expected exatcly ?
     }
 
     // T.3.1
@@ -523,62 +521,101 @@ public class RedisEntraIDUnitTests {
         assertEquals("1", tokenManager.getCurrentToken().getValue());
         Awaitility.await().pollInterval(ONE_HUNDRED_MILLISECONDS).atMost(TWO_SECONDS)
                 .until(() -> tokenManager.getCurrentToken().getValue(), is("2"));
-
-    }
-
-    // T.3.2
-    // Verify that all existing connections can be re-authenticated when a new token is received.
-    @Test
-    public void allConnectionsReauthTest() {
-
-    }
-
-    // T.3.2
-    // Test system behavior when some connections fail to re-authenticate during bulk authentication. e.g when a network partition occurs for 1 or more of them
-    @Test
-    public void partialReauthFailureTest() {
-
-    }
-
-    // T.3.3
-    // Test authentication of a single connection using the current valid token.
-    @Test
-    public void singleConnectionAuthTest() {
-
-    }
-
-    // T.3.3
-    // Verify behavior when attempting to authenticate a single connection with an expired token.
-    @Test
-    public void connectionAuthWithExpiredTokenTest() {
-
-    }
-
-    // T.3.4
-    // Verify handling of reconnection and re-authentication after a network partition. (use cached token)
-    @Test
-    public void networkPartitionEvictionTest() {
-
     }
 
     // T.4.1
     // Verify that token renewal timing can be configured correctly.
     @Test
     public void renewalTimingConfigTest() {
-
+        float refreshRatio = 0.71F;
+        int delayInMsToRetry = 201;
+        int lowerRefreshBoundMillis = 301;
+        int maxAttemptsToRetry = 6;
+        int tokenRequestExecTimeoutInMs = 401;
+        TokenAuthConfig tokenAuthConfig = EntraIDTokenAuthConfigBuilder.builder()
+                .expirationRefreshRatio(refreshRatio).delayInMsToRetry(delayInMsToRetry)
+                .lowerRefreshBoundMillis(lowerRefreshBoundMillis)
+                .maxAttemptsToRetry(maxAttemptsToRetry)
+                .tokenRequestExecTimeoutInMs(tokenRequestExecTimeoutInMs).build();
+        TokenManagerConfig config = tokenAuthConfig.getTokenManagerConfig();
+        assertEquals(refreshRatio, config.getExpirationRefreshRatio(), 0.00000001F);
+        assertEquals(delayInMsToRetry, config.getRetryPolicy().getdelayInMs());
+        assertEquals(lowerRefreshBoundMillis, config.getLowerRefreshBoundMillis());
+        assertEquals(maxAttemptsToRetry, config.getRetryPolicy().getMaxAttempts());
+        assertEquals(tokenRequestExecTimeoutInMs, config.getTokenRequestExecTimeoutInMs());
     }
 
     // T.4.2
     // Verify that Azure AD-specific parameters can be configured correctly.
     @Test
-    public void azureADConfigTest() {
+    public void withKeyCert_azureADConfigTest() {
+        PrivateKey key = mock(PrivateKey.class);
+        X509Certificate cert = mock(X509Certificate.class);
+        Set<String> scopes = Collections.singleton("testScope");
+        try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
+            EntraIDIdentityProvider.class, (mock, context) -> {
+                ServicePrincipalInfo info = (ServicePrincipalInfo) (context.arguments().get(0));
+                assertEquals("testClientId", info.getClientId());
+                assertEquals("testAuthority", info.getAuthority());
+                assertEquals(key, info.getKey());
+                assertEquals(cert, info.getCert());
+                assertEquals(scopes, context.arguments().get(1));
+            })) {
+            TokenAuthConfig config = EntraIDTokenAuthConfigBuilder.builder()
+                    .clientId("testClientId").authority("testAuthority").key(key, cert)
+                    .scopes(scopes).build();
+            config.getIdentityProviderConfig().getProvider();
+        }
+    }
 
+    // T.4.2
+    // Verify that Azure AD-specific parameters can be configured correctly.
+    @Test
+    public void withUserAssignedManagedId_azureADConfigTest() {
+        Set<String> scopes = Collections.singleton("testScope");
+        try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
+            EntraIDIdentityProvider.class, (mock, context) -> {
+                ManagedIdentityInfo info = (ManagedIdentityInfo) (context.arguments().get(0));
+                assertEquals("CLIENT_ID", ((Object) info.getId().getIdType()).toString());
+                assertEquals("testUserManagedId", info.getId().getUserAssignedId());
+                assertEquals(scopes, context.arguments().get(1));
+            })) {
+            TokenAuthConfig config = EntraIDTokenAuthConfigBuilder.builder()
+                    .clientId("testClientId").authority("testAuthority")
+                    .userAssignedManagedIdentity(UserManagedIdentityType.CLIENT_ID,
+                        "testUserManagedId")
+                    .scopes(scopes).build();
+            config.getIdentityProviderConfig().getProvider();
+        }
     }
 
     // T.4.2
     // Test configuration of custom identity provider parameters.
     @Test
     public void customProviderConfigTest() {
+        IClientSecret secret = ClientCredentialFactory.createFromSecret(testCtx.getClientSecret());
+        // Choose and configure any type of app with any parameters as needed
+        ConfidentialClientApplication app = ConfidentialClientApplication
+                .builder(testCtx.getClientId(), secret).build();
+        // Customize credential parameters as needed
+        ClientCredentialParameters parameters = ClientCredentialParameters
+                .builder(Collections.singleton("testScope")).build();
+        Supplier<IAuthenticationResult> supplier = () -> {
+            try {
+                return app.acquireToken(parameters).get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        try (MockedConstruction<EntraIDIdentityProvider> mockedConstructor = mockConstruction(
+            EntraIDIdentityProvider.class, (mock, context) -> {
+                assertEquals(supplier, context.arguments().get(0));
+            })) {
+            TokenAuthConfig tokenAuthConfig = EntraIDTokenAuthConfigBuilder.builder()
+                    .customEntraIdAuthenticationSupplier(supplier).build();
+            tokenAuthConfig.getIdentityProviderConfig().getProvider();
+        }
     }
 
     private void delay(long durationInMs) {

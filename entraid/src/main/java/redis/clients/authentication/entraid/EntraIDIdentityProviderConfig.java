@@ -21,8 +21,8 @@ public final class EntraIDIdentityProviderConfig implements IdentityProviderConf
     }
 
     public EntraIDIdentityProviderConfig(
-            Supplier<IAuthenticationResult> customEntraIdAppSupplier) {
-        providerSupplier = () -> new EntraIDIdentityProvider(customEntraIdAppSupplier);
+            Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier) {
+        providerSupplier = () -> new EntraIDIdentityProvider(customEntraIdAuthenticationSupplier);
     }
 
     @Override

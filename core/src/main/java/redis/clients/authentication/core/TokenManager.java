@@ -18,7 +18,9 @@ public class TokenManager {
     private IdentityProvider identityProvider;
     private TokenListener listener;
     private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    
+    // TODO: manage thread pool to avoid blocking on IDP hangs
+    private ExecutorService executor = Executors.newFixedThreadPool(2);
     private boolean stopped = false;
     private ScheduledFuture<?> scheduledTask;
     private int numberOfRetries = 0;
