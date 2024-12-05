@@ -23,7 +23,7 @@ public class TokenAuthConfig {
         return new Builder();
     }
 
-    public static class Builder {
+    public static class Builder<T extends Builder<T>> {
         private IdentityProviderConfig identityProviderConfig;
         private int lowerRefreshBoundMillis;
         private float expirationRefreshRatio;
@@ -31,34 +31,34 @@ public class TokenAuthConfig {
         private int maxAttemptsToRetry;
         private int delayInMsToRetry;
 
-        public Builder expirationRefreshRatio(float expirationRefreshRatio) {
+        public T expirationRefreshRatio(float expirationRefreshRatio) {
             this.expirationRefreshRatio = expirationRefreshRatio;
-            return this;
+            return (T) this;
         }
 
-        public Builder lowerRefreshBoundMillis(int lowerRefreshBoundMillis) {
+        public T lowerRefreshBoundMillis(int lowerRefreshBoundMillis) {
             this.lowerRefreshBoundMillis = lowerRefreshBoundMillis;
-            return this;
+            return (T) this;
         }
 
-        public Builder tokenRequestExecTimeoutInMs(int tokenRequestExecTimeoutInMs) {
+        public T tokenRequestExecTimeoutInMs(int tokenRequestExecTimeoutInMs) {
             this.tokenRequestExecTimeoutInMs = tokenRequestExecTimeoutInMs;
-            return this;
+            return (T) this;
         }
 
-        public Builder maxAttemptsToRetry(int maxAttemptsToRetry) {
+        public T maxAttemptsToRetry(int maxAttemptsToRetry) {
             this.maxAttemptsToRetry = maxAttemptsToRetry;
-            return this;
+            return (T) this;
         }
 
-        public Builder delayInMsToRetry(int delayInMsToRetry) {
+        public T delayInMsToRetry(int delayInMsToRetry) {
             this.delayInMsToRetry = delayInMsToRetry;
-            return this;
+            return (T) this;
         }
 
-        public Builder identityProviderConfig(IdentityProviderConfig identityProviderConfig) {
+        public T identityProviderConfig(IdentityProviderConfig identityProviderConfig) {
             this.identityProviderConfig = identityProviderConfig;
-            return this;
+            return (T) this;
         }
 
         public TokenAuthConfig build() {
@@ -66,6 +66,15 @@ public class TokenAuthConfig {
                     lowerRefreshBoundMillis, tokenRequestExecTimeoutInMs,
                     new TokenManagerConfig.RetryPolicy(maxAttemptsToRetry, delayInMsToRetry)),
                     identityProviderConfig);
+        }
+
+        public static Builder from(Builder sample) {
+            return new Builder().expirationRefreshRatio(sample.expirationRefreshRatio)
+                    .lowerRefreshBoundMillis(sample.lowerRefreshBoundMillis)
+                    .tokenRequestExecTimeoutInMs(sample.tokenRequestExecTimeoutInMs)
+                    .maxAttemptsToRetry(sample.maxAttemptsToRetry)
+                    .delayInMsToRetry(sample.delayInMsToRetry)
+                    .identityProviderConfig(sample.identityProviderConfig);
         }
     }
 }

@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,12 +19,10 @@ public class TokenManager {
     private IdentityProvider identityProvider;
     private TokenListener listener;
     private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    
-    // TODO: manage thread pool to avoid blocking on IDP hangs
     private ExecutorService executor = Executors.newFixedThreadPool(2);
     private boolean stopped = false;
     private ScheduledFuture<?> scheduledTask;
-    private int numberOfRetries = 0;
+    private AtomicInteger numberOfRetries = new AtomicInteger(0);
     private Exception lastException;
     private Logger logger = LoggerFactory.getLogger(getClass());
     private Token currentToken = null;
@@ -86,8 +85,8 @@ public class TokenManager {
             listener.onTokenRenewed(newToken);
             return newToken;
         } catch (Exception e) {
-            if (numberOfRetries < tokenManagerConfig.getRetryPolicy().getMaxAttempts()) {
-                numberOfRetries++;
+            if (numberOfRetries.getAndIncrement() < tokenManagerConfig.getRetryPolicy()
+                    .getMaxAttempts()) {
                 scheduledTask = scheduleNext(tokenManagerConfig.getRetryPolicy().getdelayInMs());
             } else {
                 TokenRequestException tre = new TokenRequestException(unwrap(e), lastException);

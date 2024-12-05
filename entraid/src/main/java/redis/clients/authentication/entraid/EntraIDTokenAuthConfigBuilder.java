@@ -8,11 +8,12 @@ import java.util.function.Supplier;
 import com.microsoft.aad.msal4j.IAuthenticationResult;
 
 import redis.clients.authentication.core.TokenAuthConfig;
+import redis.clients.authentication.core.TokenManagerConfig;
 import redis.clients.authentication.entraid.ManagedIdentityInfo.UserManagedIdentityType;
 import redis.clients.authentication.entraid.ServicePrincipalInfo.ServicePrincipalAccess;
 
-public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
-        implements AutoCloseable {
+public class EntraIDTokenAuthConfigBuilder
+        extends TokenAuthConfig.Builder<EntraIDTokenAuthConfigBuilder> implements AutoCloseable {
     public static final float DEFAULT_EXPIRATION_REFRESH_RATIO = 0.8F;
     public static final int DEFAULT_LOWER_REFRESH_BOUND_MILLIS = 2 * 60 * 1000;
     public static final int DEFAULT_TOKEN_REQUEST_EXECUTION_TIMEOUT_IN_MS = 1000;
@@ -27,6 +28,7 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
     private Set<String> scopes;
     private ServicePrincipalAccess accessWith;
     private ManagedIdentityInfo mii;
+    private int tokenRequestExecTimeoutInMs;
     private Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier;
 
     public EntraIDTokenAuthConfigBuilder() {
@@ -82,6 +84,14 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
         return this;
     }
 
+    @Override
+    public EntraIDTokenAuthConfigBuilder tokenRequestExecTimeoutInMs(
+            int tokenRequestExecTimeoutInMs) {
+        super.tokenRequestExecTimeoutInMs(tokenRequestExecTimeoutInMs);
+        this.tokenRequestExecTimeoutInMs = tokenRequestExecTimeoutInMs;
+        return this;
+    }
+
     public TokenAuthConfig build() {
         ServicePrincipalInfo spi = null;
         if (key != null || cert != null || secret != null) {
@@ -103,10 +113,12 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
                     "Cannot have both customEntraIdAuthenticationSupplier and ServicePrincipal/ManagedIdentity!");
         }
         if (spi != null) {
-            super.identityProviderConfig(new EntraIDIdentityProviderConfig(spi, scopes));
+            super.identityProviderConfig(
+                new EntraIDIdentityProviderConfig(spi, scopes, tokenRequestExecTimeoutInMs));
         }
         if (mii != null) {
-            super.identityProviderConfig(new EntraIDIdentityProviderConfig(mii, scopes));
+            super.identityProviderConfig(
+                new EntraIDIdentityProviderConfig(mii, scopes, tokenRequestExecTimeoutInMs));
         }
         if (customEntraIdAuthenticationSupplier != null) {
             super.identityProviderConfig(
@@ -128,5 +140,29 @@ public class EntraIDTokenAuthConfigBuilder extends TokenAuthConfig.Builder
 
     public static EntraIDTokenAuthConfigBuilder builder() {
         return new EntraIDTokenAuthConfigBuilder();
+    }
+
+    public static EntraIDTokenAuthConfigBuilder from(EntraIDTokenAuthConfigBuilder sample) {
+        TokenAuthConfig tokenAuthConfig = TokenAuthConfig.Builder.from(sample).build();
+        TokenManagerConfig tokenManagerConfig = tokenAuthConfig.getTokenManagerConfig();
+
+        EntraIDTokenAuthConfigBuilder builder = (EntraIDTokenAuthConfigBuilder) new EntraIDTokenAuthConfigBuilder()
+                .expirationRefreshRatio(tokenManagerConfig.getExpirationRefreshRatio())
+                .lowerRefreshBoundMillis(tokenManagerConfig.getLowerRefreshBoundMillis())
+                .tokenRequestExecTimeoutInMs(tokenManagerConfig.getTokenRequestExecTimeoutInMs())
+                .maxAttemptsToRetry(tokenManagerConfig.getRetryPolicy().getMaxAttempts())
+                .delayInMsToRetry(tokenManagerConfig.getRetryPolicy().getdelayInMs())
+                .identityProviderConfig(tokenAuthConfig.getIdentityProviderConfig());
+
+        builder.accessWith = sample.accessWith;
+        builder.authority = sample.authority;
+        builder.cert = sample.cert;
+        builder.clientId = sample.clientId;
+        builder.customEntraIdAuthenticationSupplier = sample.customEntraIdAuthenticationSupplier;
+        builder.key = sample.key;
+        builder.mii = sample.mii;
+        builder.scopes = sample.scopes;
+        builder.secret = sample.secret;
+        return builder;
     }
 }

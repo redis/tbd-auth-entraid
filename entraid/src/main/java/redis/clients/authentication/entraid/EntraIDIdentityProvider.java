@@ -20,7 +20,8 @@ public final class EntraIDIdentityProvider implements IdentityProvider {
 
     private Supplier<IAuthenticationResult> resultSupplier;
 
-    public EntraIDIdentityProvider(ServicePrincipalInfo servicePrincipalInfo, Set<String> scopes) {
+    public EntraIDIdentityProvider(ServicePrincipalInfo servicePrincipalInfo, Set<String> scopes,
+            int timeout) {
         IClientCredential credential = getClientCredential(servicePrincipalInfo);
         ConfidentialClientApplication app;
 
@@ -30,20 +31,22 @@ public final class EntraIDIdentityProvider implements IdentityProvider {
                     : authority;
             app = ConfidentialClientApplication
                     .builder(servicePrincipalInfo.getClientId(), credential).authority(authority)
-                    .build();
+                    .readTimeoutForDefaultHttpClient(timeout).build();
         } catch (MalformedURLException e) {
             throw new RedisEntraIDException("Failed to init EntraID client!", e);
         }
-        ClientCredentialParameters params = ClientCredentialParameters.builder(scopes).build();
+        ClientCredentialParameters params = ClientCredentialParameters.builder(scopes)
+                .skipCache(true).build();
 
         resultSupplier = () -> supplierForConfidentialApp(app, params);
     }
 
-    public EntraIDIdentityProvider(ManagedIdentityInfo info, Set<String> scopes) {
-        ManagedIdentityApplication app = ManagedIdentityApplication.builder(info.getId()).build();
+    public EntraIDIdentityProvider(ManagedIdentityInfo info, Set<String> scopes, int timeout) {
+        ManagedIdentityApplication app = ManagedIdentityApplication.builder(info.getId())
+                .readTimeoutForDefaultHttpClient(timeout).build();
 
         ManagedIdentityParameters params = ManagedIdentityParameters
-                .builder(scopes.iterator().next()).build();
+                .builder(scopes.iterator().next()).forceRefresh(true).build();
         resultSupplier = () -> supplierForManagedIdentityApp(app, params);
     }
 
