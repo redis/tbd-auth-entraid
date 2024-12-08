@@ -162,7 +162,7 @@ public class CoreAuthenticationUnitTests {
     TokenRequestException e = assertThrows(TokenRequestException.class,
       () -> tokenManager.start(mock(TokenListener.class), true));
 
-    assertEquals("Test exception from identity provider!", e.getCause().getCause().getMessage());
+    assertEquals("Test exception from identity provider!", e.getCause().getMessage());
   }
 
   @Test

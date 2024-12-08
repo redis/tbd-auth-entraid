@@ -160,7 +160,7 @@ public class EntraIDUnitTests {
             () -> tokenManager.start(mock(TokenListener.class), true));
 
         assertEquals("Test exception from identity provider!",
-            e.getCause().getCause().getMessage());
+            e.getCause().getMessage());
     }
 
     // T.2.1

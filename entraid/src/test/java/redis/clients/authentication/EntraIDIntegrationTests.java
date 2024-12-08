@@ -17,7 +17,7 @@ public class EntraIDIntegrationTests {
                                 testCtx.getClientId(), testCtx.getClientSecret(),
                                 testCtx.getAuthority());
                 Token token = new EntraIDIdentityProvider(servicePrincipalInfo,
-                                testCtx.getRedisScopes(),1000).requestToken();
+                                testCtx.getRedisScopes(), 1000).requestToken();
 
                 assertNotNull(token.getValue());
         }

@@ -49,7 +49,7 @@ public class TokenManager {
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
-                throw new TokenRequestException(unwrap(e), lastException);
+                throw prepareToPropogate(e);
             }
         }
     }
@@ -89,9 +89,9 @@ public class TokenManager {
                     .getMaxAttempts()) {
                 scheduledTask = scheduleNext(tokenManagerConfig.getRetryPolicy().getdelayInMs());
             } else {
-                TokenRequestException tre = new TokenRequestException(unwrap(e), lastException);
-                listener.onError(tre);
-                throw tre;
+                RuntimeException propogateExc = prepareToPropogate(e);
+                listener.onError(propogateExc);
+                throw propogateExc;
             }
         }
         return null;
@@ -108,8 +108,15 @@ public class TokenManager {
         }
     }
 
-    private Throwable unwrap(Exception e) {
-        return (e instanceof ExecutionException) ? e.getCause() : e;
+    private RuntimeException prepareToPropogate(Exception e) {
+        Throwable unwrapped = e;
+        if (unwrapped instanceof ExecutionException) {
+            unwrapped = e.getCause();
+        }
+        if (unwrapped instanceof TokenRequestException) {
+            return (RuntimeException) unwrapped;
+        }
+        return new TokenRequestException(unwrapped, lastException);
     }
 
     public Token getCurrentToken() {
