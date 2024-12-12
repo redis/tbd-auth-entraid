@@ -61,10 +61,6 @@ import redis.clients.authentication.entraid.ManagedIdentityInfo;
 import redis.clients.authentication.entraid.ServicePrincipalInfo;
 import redis.clients.authentication.entraid.ManagedIdentityInfo.UserManagedIdentityType;
 
-// import redis.clients.jedis.DefaultJedisClientConfig;
-// import redis.clients.jedis.HostAndPort;
-// import redis.clients.jedis.JedisPooled;
-
 public class EntraIDUnitTests {
 
     private static final float EXPIRATION_REFRESH_RATIO = 0.7F;
