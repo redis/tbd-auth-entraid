@@ -14,7 +14,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -131,9 +130,8 @@ public class CoreAuthenticationUnitTests {
   public void testTokenManagerStart()
       throws InterruptedException, ExecutionException, TimeoutException {
 
-    IdentityProvider identityProvider = () -> new SimpleToken("tokenVal",
-        System.currentTimeMillis() + 5 * 1000, System.currentTimeMillis(),
-        Collections.singletonMap("oid", "user1"));
+    IdentityProvider identityProvider = () -> new SimpleToken("user1", "tokenVal",
+        System.currentTimeMillis() + 5 * 1000, System.currentTimeMillis(), null);
 
     TokenManager tokenManager = new TokenManager(identityProvider,
         new TokenManagerConfig(0.7F, 200, 2000, null));
@@ -198,8 +196,8 @@ public class CoreAuthenticationUnitTests {
       if (requesLatch.getCount() > 0) {
         throw new RuntimeException("Test exception from identity provider!");
       }
-      return new SimpleToken("tokenValX", System.currentTimeMillis() + 50 * 1000,
-          System.currentTimeMillis(), Collections.singletonMap("oid", "user1"));
+      return new SimpleToken("user1", "tokenValX", System.currentTimeMillis() + 50 * 1000,
+          System.currentTimeMillis(), null);
     });
 
     ArgumentCaptor<Token> argument = ArgumentCaptor.forClass(Token.class);
@@ -230,8 +228,8 @@ public class CoreAuthenticationUnitTests {
       if (requesLatch.getCount() > 0) {
         delay(delayDuration);
       }
-      return new SimpleToken("tokenValX", System.currentTimeMillis() + tokenLifetime,
-          System.currentTimeMillis(), Collections.singletonMap("oid", "user1"));
+      return new SimpleToken("user1", "tokenValX", System.currentTimeMillis() + tokenLifetime,
+          System.currentTimeMillis(), null);
     };
 
     TokenManager tokenManager = new TokenManager(identityProvider, new TokenManagerConfig(0.7F, 200,

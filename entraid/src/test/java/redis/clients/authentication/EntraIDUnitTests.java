@@ -82,8 +82,8 @@ public class EntraIDUnitTests {
     private static final long TOKEN_ISSUE_TIME = System.currentTimeMillis();
     private static final String TOKEN_OID = "user1";
 
-    private Token simpleToken = new SimpleToken(TOKEN_VALUE, TOKEN_EXPIRATION_TIME,
-            TOKEN_ISSUE_TIME, Collections.singletonMap("oid", TOKEN_OID));
+    private Token simpleToken = new SimpleToken(TOKEN_OID, TOKEN_VALUE, TOKEN_EXPIRATION_TIME,
+            TOKEN_ISSUE_TIME, null);
 
     private TestContext testCtx = TestContext.DEFAULT;
 
@@ -159,8 +159,7 @@ public class EntraIDUnitTests {
         TokenRequestException e = assertThrows(TokenRequestException.class,
             () -> tokenManager.start(mock(TokenListener.class), true));
 
-        assertEquals("Test exception from identity provider!",
-            e.getCause().getMessage());
+        assertEquals("Test exception from identity provider!", e.getCause().getMessage());
     }
 
     // T.2.1
@@ -267,9 +266,8 @@ public class EntraIDUnitTests {
     public void backgroundTokenRenewalTest() throws InterruptedException, TimeoutException {
         AtomicInteger numberOfTokens = new AtomicInteger(0);
 
-        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_VALUE,
-                System.currentTimeMillis() + 1000, System.currentTimeMillis(),
-                Collections.singletonMap("oid", TOKEN_OID));
+        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_OID, TOKEN_VALUE,
+                System.currentTimeMillis() + 1000, System.currentTimeMillis(), null);
 
         TokenManager tokenManager = new TokenManager(identityProvider, tokenManagerConfig);
         TokenListener listener = new TokenListener() {
@@ -326,9 +324,8 @@ public class EntraIDUnitTests {
         AtomicInteger numberOfTokens = new AtomicInteger(0);
         AtomicInteger timeDiff = new AtomicInteger(0);
 
-        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_VALUE,
-                System.currentTimeMillis() + 1000, System.currentTimeMillis(),
-                Collections.singletonMap("oid", TOKEN_OID));
+        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_OID, TOKEN_VALUE,
+                System.currentTimeMillis() + 1000, System.currentTimeMillis(), null);
 
         TokenManager tokenManager = new TokenManager(identityProvider, tokenManagerConfig);
         TokenListener listener = new TokenListener() {
@@ -368,9 +365,8 @@ public class EntraIDUnitTests {
         List<Token> tokens = new ArrayList<Token>();
         int validDurationInMs = 1000;
 
-        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_VALUE,
-                System.currentTimeMillis() + validDurationInMs, System.currentTimeMillis(),
-                Collections.singletonMap("oid", TOKEN_OID));
+        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_OID, TOKEN_VALUE,
+                System.currentTimeMillis() + validDurationInMs, System.currentTimeMillis(), null);
 
         TokenManagerConfig tokenManagerConfig = new TokenManagerConfig(0.99F, 0,
                 TOKEN_REQUEST_EXEC_TIMEOUT,
@@ -413,9 +409,8 @@ public class EntraIDUnitTests {
         List<Token> tokens = new ArrayList<Token>();
         int validDurationInMs = 1000;
 
-        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_VALUE,
-                System.currentTimeMillis() + validDurationInMs, System.currentTimeMillis(),
-                Collections.singletonMap("oid", TOKEN_OID));
+        IdentityProvider identityProvider = () -> new SimpleToken(TOKEN_OID, TOKEN_VALUE,
+                System.currentTimeMillis() + validDurationInMs, System.currentTimeMillis(), null);
 
         TokenManagerConfig tokenManagerConfig = new TokenManagerConfig(0.01F, 0,
                 TOKEN_REQUEST_EXEC_TIMEOUT,
@@ -510,9 +505,8 @@ public class EntraIDUnitTests {
 
         AtomicInteger numberOfTokens = new AtomicInteger(0);
         IdentityProvider identityProvider = () -> {
-            return new SimpleToken("" + numberOfTokens.incrementAndGet(),
-                    System.currentTimeMillis() + 500, System.currentTimeMillis(),
-                    Collections.singletonMap("oid", "user1"));
+            return new SimpleToken("user1", "" + numberOfTokens.incrementAndGet(),
+                    System.currentTimeMillis() + 500, System.currentTimeMillis(), null);
         };
         TokenManager tokenManager = new TokenManager(identityProvider, tokenManagerConfig);
         assertNull(tokenManager.getCurrentToken());

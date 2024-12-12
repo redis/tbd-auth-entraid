@@ -2,9 +2,7 @@ package redis.clients.authentication.core;
 
 public interface Token {
 
-    public boolean isExpired();
-
-    public long ttl();
+    public String getUser();
 
     public String getValue();
 
@@ -12,5 +10,10 @@ public interface Token {
 
     public long getReceivedAt();
 
-    public String tryGet(String key);
+    public boolean isExpired();
+
+    public long ttl();
+
+    public <T> T tryGet(String key, Class<T> clazz);
+
 }
