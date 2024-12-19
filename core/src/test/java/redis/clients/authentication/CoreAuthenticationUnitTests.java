@@ -1,3 +1,9 @@
+/*
+ * Copyright 2024, Redis Ltd. and Contributors
+ * All rights reserved.
+ *
+ * Licensed under the MIT License.
+ */
 package redis.clients.authentication;
 
 import static org.mockito.Mockito.when;
