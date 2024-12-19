@@ -1,0 +1,32 @@
+<!--
+Github issues should be used to report bugs and for detailed feature requests. 
+Everything else belongs in the [Redis EntraID Google Group](https://groups.google.com/g/entraid_redis) 
+or [Redis EntraID Github Discussions](https://github.com/redis/entraid/discussions).
+
+Please post general questions to Google Groups or Github discussions. 
+These can be closed without response when posted to Github issues.
+-->
+
+### Expected behavior
+
+Write here what you're expecting ...
+
+### Actual behavior
+
+Write here what happens instead ...
+
+### Steps to reproduce:
+
+Please create a reproducible case of your problem. Make sure
+that case repeats consistently and it's not random
+1.
+2.
+3.
+
+### Redis / EntraID Configuration
+
+#### ClientLibrary and version:
+
+#### Redis version:
+
+#### Java version:
