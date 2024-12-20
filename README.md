@@ -1,11 +1,11 @@
 # Token-based Authentication Providers for Redis Java clients
 
-This extension provides Token-based Authentication for Redis Java client libraries([lettuce](https://github.com/redis/lettuce) and [Jedis](https://github.com/redis/jedis)) to support token-based authentication. 
+This extension provides Token-based Authentication for Redis Java client libraries: [lettuce](https://github.com/redis/lettuce) and [Jedis](https://github.com/redis/jedis)
 
 ## Microsoft Entra ID provider
 
 ### Installation 
-To install the Java packages, add the following dependencies to your `pom.xml` file if you're using Maven:
+To install the Entra ID provider, add the following dependencies to your `pom.xml` file if you're using Maven:
 ```xml
 <dependency>
     <groupId>redis.clients.authentication</groupId>
