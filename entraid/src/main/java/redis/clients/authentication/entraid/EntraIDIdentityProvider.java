@@ -24,10 +24,27 @@ import redis.clients.authentication.core.Token;
 
 public final class EntraIDIdentityProvider implements IdentityProvider {
 
-    private Supplier<IAuthenticationResult> resultSupplier;
+    private interface ClientApp {
+        public IAuthenticationResult request();
+    }
+
+    private interface ClientAppFactory {
+        public ClientApp create();
+    }
+
+    private ClientAppFactory clientAppFactory;
+    private ClientApp clientApp;
 
     public EntraIDIdentityProvider(ServicePrincipalInfo servicePrincipalInfo, Set<String> scopes,
             int timeout) {
+
+        clientAppFactory = () -> {
+            return createConfidentialClientApp(servicePrincipalInfo, scopes, timeout);
+        };
+    }
+
+    private ClientApp createConfidentialClientApp(ServicePrincipalInfo servicePrincipalInfo,
+            Set<String> scopes, int timeout) {
         IClientCredential credential = getClientCredential(servicePrincipalInfo);
         ConfidentialClientApplication app;
 
@@ -44,21 +61,32 @@ public final class EntraIDIdentityProvider implements IdentityProvider {
         ClientCredentialParameters params = ClientCredentialParameters.builder(scopes)
                 .skipCache(true).build();
 
-        resultSupplier = () -> supplierForConfidentialApp(app, params);
+        return () -> requestWithConfidentialClient(app, params);
     }
 
     public EntraIDIdentityProvider(ManagedIdentityInfo info, Set<String> scopes, int timeout) {
+
+        clientAppFactory = () -> {
+            return createManagedIdentityApp(info, scopes, timeout);
+        };
+    }
+
+    private ClientApp createManagedIdentityApp(ManagedIdentityInfo info, Set<String> scopes,
+            int timeout) {
         ManagedIdentityApplication app = ManagedIdentityApplication.builder(info.getId())
                 .readTimeoutForDefaultHttpClient(timeout).build();
 
         ManagedIdentityParameters params = ManagedIdentityParameters
                 .builder(scopes.iterator().next()).forceRefresh(true).build();
-        resultSupplier = () -> supplierForManagedIdentityApp(app, params);
+        return () -> requestWithManagedIdentity(app, params);
     }
 
     public EntraIDIdentityProvider(
             Supplier<IAuthenticationResult> customEntraIdAuthenticationSupplier) {
-        this.resultSupplier = customEntraIdAuthenticationSupplier;
+
+        clientAppFactory = () -> {
+            return () -> customEntraIdAuthenticationSupplier.get();
+        };
     }
 
     private IClientCredential getClientCredential(ServicePrincipalInfo servicePrincipalInfo) {
@@ -75,10 +103,11 @@ public final class EntraIDIdentityProvider implements IdentityProvider {
 
     @Override
     public Token requestToken() {
-        return new JWToken(resultSupplier.get().accessToken());
+        clientApp = clientApp == null ? clientAppFactory.create() : clientApp;
+        return new JWToken(clientApp.request().accessToken());
     }
 
-    public IAuthenticationResult supplierForConfidentialApp(ConfidentialClientApplication app,
+    public IAuthenticationResult requestWithConfidentialClient(ConfidentialClientApplication app,
             ClientCredentialParameters params) {
         try {
             Future<IAuthenticationResult> tokenRequest = app.acquireToken(params);
@@ -88,7 +117,7 @@ public final class EntraIDIdentityProvider implements IdentityProvider {
         }
     }
 
-    public IAuthenticationResult supplierForManagedIdentityApp(ManagedIdentityApplication app,
+    public IAuthenticationResult requestWithManagedIdentity(ManagedIdentityApplication app,
             ManagedIdentityParameters params) {
         try {
             Future<IAuthenticationResult> tokenRequest = app.acquireTokenForManagedIdentity(params);

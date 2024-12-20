@@ -202,7 +202,7 @@ public class EntraIDUnitTests {
         for (int i = 0; i < stackTrace.length; i++) {
             assertEquals(false, isTokenManagerStarted.get());
 
-            if (stackTrace[i].getMethodName().equals("get")
+            if (stackTrace[i].getMethodName().equals("waitFor")
                     && stackTrace[i + 1].getClassName().equals(TokenManager.class.getName())
                     && stackTrace[i + 1].getMethodName().equals("start")) {
                 latch.countDown();

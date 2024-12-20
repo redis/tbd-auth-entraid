@@ -33,6 +33,7 @@ import redis.clients.authentication.core.Token;
 import redis.clients.authentication.core.TokenListener;
 import redis.clients.authentication.core.TokenManager;
 import redis.clients.authentication.core.TokenManagerConfig;
+import redis.clients.authentication.core.TokenManagerConfig.RetryPolicy;
 import redis.clients.authentication.core.TokenRequestException;
 
 import static org.awaitility.Awaitility.await;
@@ -56,6 +57,11 @@ public class CoreAuthenticationUnitTests {
     @Override
     public float getExpirationRefreshRatio() {
       return ratio;
+    }
+
+    @Override
+    public RetryPolicy getRetryPolicy() {
+      return new RetryPolicy(1, 1);
     }
   }
 
@@ -140,7 +146,7 @@ public class CoreAuthenticationUnitTests {
         System.currentTimeMillis() + 5 * 1000, System.currentTimeMillis(), null);
 
     TokenManager tokenManager = new TokenManager(identityProvider,
-        new TokenManagerConfig(0.7F, 200, 2000, null));
+        new TokenManagerConfig(0.7F, 200, 2000, new RetryPolicy(1, 1)));
 
     TokenListener listener = mock(TokenListener.class);
     final Token[] tokenHolder = new Token[1];
