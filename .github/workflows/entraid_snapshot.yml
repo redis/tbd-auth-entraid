@@ -19,12 +19,6 @@
           working-directory: ./entraid
       steps:
         - uses: actions/checkout@v2
-        - name: Checkout Jedis repository (tba_draft branch)
-          uses: actions/checkout@v2
-          with:
-            repository: atakavci/jedis  # Replace with the actual jedis repository URL
-            ref: ali/authx2
-            path: jedis  # Check out into a subdirectory named `jedis` so it's isolated
         
         - name: Set up publishing to maven central
           uses: actions/setup-java@v2
@@ -41,14 +35,23 @@
               ~/.m2/repository
               /var/cache/apt
             key: entraid-${{hashFiles('**/pom.xml')}}
+
+        - name: Maven offline-core
+          run: |
+            mvn -q dependency:go-offline
+          working-directory: ./core
+        - name: Build and install Core into local repo
+          run: |
+            mvn clean install -DskipTests  # Skip tests for faster builds, but you can remove the flag if needed
+          working-directory: ./core
+                      
         - name: Maven offline
           run: |
             mvn -q dependency:go-offline
         - name: deploy
           run: |
             mvn --no-transfer-progress \
-              -DskipTests deploy
+              -DskipTests  -Dmaven.test.skip=true deploy
           env:
             MAVEN_USERNAME: ${{secrets.OSSH_USERNAME}}
             MAVEN_PASSWORD: ${{secrets.OSSH_TOKEN}}
-  
